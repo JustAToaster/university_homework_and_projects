@@ -277,7 +277,7 @@ public class NBI_GradientDescent extends Configured implements Tool {
                     vValues.put(cols[1] + "\t" + cols[2], Double.parseDouble(cols[3]));
                 }
                 else if(cols[0].equals("G")){
-                    if (!cols[1].equals(gamma_col)) ctx.write(NullWritable.get(), val);
+                    if (!cols[1].equals(gamma_col)) ctx.write(NullWritable.get(), new Text(val.toString().substring(3)));
                     else gammaValuesToUpdate.put(cols[1] + "\t" + cols[2], Double.parseDouble(cols[3]));
                 }
             }
@@ -342,8 +342,9 @@ public class NBI_GradientDescent extends Configured implements Tool {
         return b;
     }
 
-    private boolean gammaGeneration(String dummyInput, String gammaOutput) throws Exception {
+    private boolean gammaGeneration(String dummyInput, String gammaOutput, int num_cols) throws Exception {
         Configuration conf = getConf();
+        conf.setInt("num_cols", num_cols);
         //conf.set("mapreduce.map.memory.mb", "2048");
         Job job = Job.getInstance(conf, "gamma-generation");
         Path temp = new Path(dummyInput);
@@ -430,6 +431,9 @@ public class NBI_GradientDescent extends Configured implements Tool {
 
     @Override
     public int run(String[] args) throws Exception {
+        int epochs = Integer.parseInt(args[1]);
+        int num_rows = Integer.parseInt(args[3]);
+        int num_cols = Integer.parseInt(args[4]);
         File f1 = File.createTempFile("temp1-", ".tmp");
         File v_f = File.createTempFile("v_f-", ".tmp");
         File gamma_f = File.createTempFile("gamma_start-", ".txt");
@@ -439,15 +443,12 @@ public class NBI_GradientDescent extends Configured implements Tool {
         if (!b) return 1;
         b = matrixmult2(f1.getName(), v_f.getName());
         if (!b) return 2;
-        b = gammaGeneration(args[0], gamma_f.getName());
+        b = gammaGeneration(args[0], gamma_f.getName(), num_cols);
         if (!b) return 3;
 
-        int epochs = Integer.parseInt(args[1]);
-        int num_rows = 664;
-        int num_cols = 445;
         double cardinality = (double)num_rows*num_cols;
         for(int i=1; i<=epochs; ++i){
-            for(int j=1; j<=3; ++j){
+            for(int j=1; j<=num_cols; ++j){
                 System.out.println("Iteration " + Integer.toString(j) + " of epoch " + Integer.toString(i));
                 File gamma_out = File.createTempFile("gamma_epoch" + Integer.toString(i) + "_col" + Integer.toString(j) + "-", ".txt");
                 File ratingerror_f = File.createTempFile("ratingerror"  + Integer.toString(i) + "_col" + Integer.toString(j) + "-", ".tmp");
@@ -462,8 +463,8 @@ public class NBI_GradientDescent extends Configured implements Tool {
     }
 
     public static void main(String[] args) throws Exception {
-        if (args.length < 3){
-            System.out.println("Usage: NBI_GradientDescent matrix.txt epochs learning_rate");
+        if (args.length < 5){
+            System.out.println("Usage: NBI_GradientDescent matrix.txt epochs learning_rate num_rows num_cols");
             System.exit(-1);
         }
         int res = ToolRunner.run(new Configuration(), new NBI_GradientDescent(), args);
