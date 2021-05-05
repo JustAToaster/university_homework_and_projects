@@ -176,16 +176,18 @@ public class NBI_GradientDescent extends Configured implements Tool {
         }
     }
 
-    public static class GammaGenerationMapper extends Mapper<Object, Text, Text, Text> {
+    public static class GammaGenerationMapper extends Mapper<Object, Text, Text, DoubleWritable> {
         
         @Override
         protected void map(Object key, Text value, Context ctx) throws IOException, InterruptedException {
-            double random_gamma = new Random().nextGaussian()*0.15; //Random weight with std 0.15
+            Random r = new Random();
+            double random_gamma;
             Configuration conf = ctx.getConfiguration();
             int num_cols = conf.getInt("num_cols", 0);
             for(int i=1; i<=num_cols; ++i){
-                int j = (int)value.toString().charAt(0);
-                ctx.write(new Text(Integer.toString(j) + "\t" + Integer.toString(i)), new Text(Double.toString(random_gamma))); //Write corresponding random starting weight for GD
+                random_gamma = r.nextGaussian()*0.10; //Random weight with std 0.10
+                String j = value.toString().split("\t")[0];
+                ctx.write(new Text(j + "\t" + Integer.toString(i)), new DoubleWritable(random_gamma)); //Write corresponding random starting weight for GD
             }                
         }
     }
@@ -282,6 +284,7 @@ public class NBI_GradientDescent extends Configured implements Tool {
                 }
             }
             rmse = Math.sqrt(rmse);
+            System.out.println("Current RMSE: " + Double.toString(rmse));
             double denom = rmse*cardinality;
             if (denom == 0) denom = 0.0001;
             double part_result = num/denom;
@@ -446,9 +449,11 @@ public class NBI_GradientDescent extends Configured implements Tool {
         b = gammaGeneration(args[0], gamma_f.getName(), num_cols);
         if (!b) return 3;
 
+        int MAX_ITER = 3;   //For testing, since a single iteration can take a lot of time
+
         double cardinality = (double)num_rows*num_cols;
         for(int i=1; i<=epochs; ++i){
-            for(int j=1; j<=num_cols; ++j){
+            for(int j=1; j<=num_cols && j<=MAX_ITER; ++j){
                 System.out.println("Iteration " + Integer.toString(j) + " of epoch " + Integer.toString(i));
                 File gamma_out = File.createTempFile("gamma_epoch" + Integer.toString(i) + "_col" + Integer.toString(j) + "-", ".txt");
                 File ratingerror_f = File.createTempFile("ratingerror"  + Integer.toString(i) + "_col" + Integer.toString(j) + "-", ".tmp");
@@ -465,6 +470,8 @@ public class NBI_GradientDescent extends Configured implements Tool {
     public static void main(String[] args) throws Exception {
         if (args.length < 5){
             System.out.println("Usage: NBI_GradientDescent matrix.txt epochs learning_rate num_rows num_cols");
+            System.out.println("Example: hadoop jar NBI_GradientDescent.jar NBI_GradientDescent e_admat_dgc.txt 1 0.01 664 445");
+            System.out.println("Output gamma values for each iteration are in /users/USER_NAME/");
             System.exit(-1);
         }
         int res = ToolRunner.run(new Configuration(), new NBI_GradientDescent(), args);
