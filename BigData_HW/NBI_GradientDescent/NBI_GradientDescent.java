@@ -1,11 +1,14 @@
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
+
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.FileSystem;
+
 import org.apache.hadoop.io.NullWritable;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.DoubleWritable;
 import org.apache.hadoop.io.Text;
+
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.Reducer;
@@ -13,28 +16,17 @@ import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
 import org.apache.hadoop.mapreduce.lib.input.KeyValueTextInputFormat;
 import org.apache.hadoop.mapreduce.lib.input.TextInputFormat;
 import org.apache.hadoop.mapreduce.lib.input.MultipleInputs;
-import org.apache.hadoop.mapreduce.lib.output.MultipleOutputs;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
+
 import org.apache.hadoop.util.StringUtils;
 import org.apache.hadoop.util.Tool;
 import org.apache.hadoop.util.ToolRunner;
-import java.lang.StringBuilder;
-import java.util.ArrayList;
-import java.net.URI;
 
-import java.io.BufferedReader;
-import java.io.FileReader;
-import java.io.InputStreamReader;
-import java.io.LineNumberReader;
-import java.io.InputStream;
 import java.io.IOException;
 import java.io.File;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
-import java.util.Arrays;
-import java.nio.file.Files;
-import java.nio.charset.Charset;
 
 import java.lang.Math;
 import java.lang.Integer;
@@ -160,9 +152,9 @@ public class NBI_GradientDescent extends Configured implements Tool {
                 for(int i=1; i<=num_cols; ++i){
                     for(int j=1; j<=num_rows; ++j){
                         ctx.write(new Text(Integer.toString(j) + "\t" + Integer.toString(i)), new Text("A\t" + cols[0] + "\t" + Integer.toString(i) + "\t" + cols[i]));
-                        ctx.write(new Text(Integer.toString(j) + "\t" + Integer.toString(i)), new Text("F\t" + cols[0] + "\t" + Integer.toString(i) + "\t" + cols[i]));
                     }
-                    ctx.write(new Text(cols[0] + "\t" + i), new Text("R\t" + cols[0] + "\t" + i + "\t" + cols[i])); //Real rating
+                    ctx.write(new Text(cols[0] + "\t" + Integer.toString(i)), new Text("F\t" + cols[0] + "\t" + Integer.toString(i) + "\t" + cols[i]));
+                    ctx.write(new Text(cols[0] + "\t" + Integer.toString(i)), new Text("R\t" + cols[0] + "\t" + Integer.toString(i) + "\t" + cols[i])); //Real rating
                 }                
             }
             else{
@@ -279,8 +271,8 @@ public class NBI_GradientDescent extends Configured implements Tool {
                     vValues.put(cols[1] + "\t" + cols[2], Double.parseDouble(cols[3]));
                 }
                 else if(cols[0].equals("G")){
-                    if (!cols[1].equals(gamma_col)) ctx.write(NullWritable.get(), new Text(val.toString().substring(3)));
-                    else gammaValuesToUpdate.put(cols[1] + "\t" + cols[2], Double.parseDouble(cols[3]));
+                    if (cols[2].equals(gamma_col)) gammaValuesToUpdate.put(cols[1] + "\t" + cols[2], Double.parseDouble(cols[3]));
+                    else ctx.write(NullWritable.get(), new Text(cols[1] + "\t" + cols[2] + "\t" + cols[3]));
                 }
             }
             rmse = Math.sqrt(rmse);
@@ -449,7 +441,7 @@ public class NBI_GradientDescent extends Configured implements Tool {
         b = gammaGeneration(args[0], gamma_f.getName(), num_cols);
         if (!b) return 3;
 
-        int MAX_ITER = 3;   //For testing, since a single iteration can take a lot of time
+        int MAX_ITER = 2;   //For testing, since a single iteration can take a lot of time
 
         double cardinality = (double)num_rows*num_cols;
         for(int i=1; i<=epochs; ++i){
